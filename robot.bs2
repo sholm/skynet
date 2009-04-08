@@ -85,18 +85,23 @@ DO
     RANDOM result
     result = result / 4 ' MAGIC NUMBERS FTW
     updateRandom = 0
-  ENDIF
-	
+  ENDIF	
 
+  'Always detect mines
   GOSUB Detect_Mines
 
   IF onMineL = 1 OR onMineR = 1 THEN
     GOSUB Turn_Random
     avoidMode = 1
+    forwardMode = 0
+    turnMode = 0
   ENDIF
 
-  IF ONMineL = 0 AND ONMineR = 0 THEN
+  IF avoidMode = 1 AND ONMineL = 0 AND ONMineR = 0 THEN
   	avoidMode = 0
+     forwardMode = 1
+     turnMode = 0
+     'Get safe
   ENDIF
 
   IF forwardMode = 1 THEN ' Move forward, avoid walls and look for mines
@@ -116,7 +121,7 @@ DO
     GOSUB Turn_Robot
 
     'Exit turn state
-    IF i = result OR distanceLeft < 5 OR distanceRight < 5 THEN
+    IF i = result OR irDetectLeft = 1 OR irdetectRight = 1 THEN
       forwardMode = 1
       turnMode = 0
       i = 0
@@ -202,13 +207,23 @@ Get_Ir_Distances:
       LOOKUP freqSelect,[41500,42250,42000,42250,42500], irFrequency
 
       FREQOUT irLEDLeft,1,irFrequency
-      irDetectLeft = irLeft
-      distanceLeft = distanceLeft + irDetectLeft
+      'irDetectLeft = irLeft
+      distanceLeft = distanceLeft + irLeft
 
       FREQOUT irLEDRight,1,irFrequency
-      irDetectRight = irRight
-      distanceRight = distanceRight + irDetectRight
+      'irDetectRight = irRight
+      distanceRight = distanceRight + irRight
   NEXT
+  IF distanceLeft < 5 THEN
+	irDetectLeft = 1
+  ELSE 
+	irDetectLeft = 0
+  ENDIF
+  IF distanceRight < 5 THEN
+	irDetectRight = 1
+  ELSE 
+     irDetectRight = 0
+  ENDIF
   RETURN
 
 Send_Pulse:
