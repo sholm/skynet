@@ -20,11 +20,15 @@ irLeft        PIN 11
 irRight       PIN 10
 leftWheel     PIN 13
 rightWheel    PIN 12
+LEDLeft       PIN 9
+LEDRight      PIN 8
+LED4          PIN 6
+LED3          PIN 4
+LED2          PIN 3
+LED1          PIN 2
 speaker       PIN 5
 whiskerLeft   PIN 2
 whiskerRight  PIN 3
-LEDLeft       PIN 7
-LEDRight      PIN 6
 irLEDLeft     PIN 1
 irLEDRight    PIN 0
 
@@ -82,6 +86,19 @@ dTimeR = 0
 lastTimeLeft = 0
 lastTimeRight = 0
 i = 0
+
+HIGH LED1
+PAUSE 40 
+LOW LED1
+HIGH LED2
+PAUSE 40
+LOW LED2
+HIGH LED3
+PAUSE 40
+LOW LED3
+HIGH LED4  
+PAUSE 40
+LOW LED4
 
 HIGH photoLeft
 PAUSE 2
@@ -150,6 +167,7 @@ DO
 	
   odd = ~odd 
   i = i + 1
+  GOSUB Funny_Lights
 LOOP
 
 ''
@@ -163,6 +181,8 @@ Detect_Mines:
   HIGH photoRight
   PAUSE 2
   RCTIME photoRight,1,timeRight
+
+  'DEBUG "Left: ", DEC5 timeleft, ", Right: ", DEC5 timeRight, CR
 
   dTimeL = timeLeft-lastTimeLeft
   dTimeR = timeRight-lastTimeRight
@@ -197,6 +217,14 @@ Detect_Mines:
     onMineR = 1
     HIGH LEDRight
   ENDIF
+
+  IF timeRight < 60 THEN
+    onMineR = 0
+  ENDIF
+  
+  IF timeLeft < 60 THEN
+    onMineR = 0
+  ENDIF 
 
   IF odd = 1 THEN
     lastTimeLeft = timeLeft
@@ -272,6 +300,22 @@ Mine_Melody:
 
   NEXT
   RETURN
+
+Funny_Lights:
+  IF i//4 = 0 THEN 
+    HIGH LED1
+    LOW LED4
+  ELSEIF i//4 = 1 THEN
+    HIGH LED2
+    LOW LED1
+  ELSEIF i//4 = 2 THEN
+    HIGH LED3
+    LOW LED2
+  ELSEIF i//4 = 3 THEN
+   HIGH LED4
+   LOW LED3
+  ENDIF
+RETURN
 
 Check_Whiskers:
   IF (whiskerLeft = 0) THEN
