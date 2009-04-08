@@ -1,0 +1,259 @@
+' {$STAMP BS2}
+' {$PBASIC 2.5}
+
+Kpl           CON -35
+Kpr           CON 35
+SetPoint      CON 1
+CenterPulse   CON 750
+threshold     CON 6
+stepInc       CON 10
+
+photoLeft     PIN 15
+photoRight    PIN 14
+irLeft        PIN 11
+irRight       PIN 10
+leftWheel     PIN 13
+rightWheel    PIN 12
+speaker       PIN 5
+whiskerLeft   PIN 2
+whiskerRight  PIN 3
+LEDLeft       PIN 7
+LEDRight      PIN 6
+irLEDLeft     PIN 1
+irLEDRight    PIN 0
+
+freqSelect    VAR NIB
+irFrequency   VAR WORD
+distanceLeft  VAR NIB
+distanceRight VAR NIB
+pulseLeft     VAR WORD
+pulseRight    VAR WORD
+counter       VAR WORD
+timeLeft      VAR BYTE
+timeRight     VAR BYTE
+lastTimeLeft  VAR BYTE
+lastTimeRight VAR BYTE
+dTimeL        VAR BYTE
+dTimeR        VAR BYTE
+negDeltaRight VAR BIT
+negDeltaLeft  VAR BIT
+
+irDetectLeft  VAR BIT 'state variable
+irDetectRight VAR BIT 'state variable
+odd           VAR BIT 'state variabel
+forwardMode   VAR BIT 'state variable
+onMineL       VAR BIT 'state variable
+onMineR	    VAR BIT 'state variable
+avoidMode     VAR BIT 'state variable
+turnMode      VAR BIT 'state variable
+updateRandom  VAR BIT 'state variable
+
+result        VAR BYTE
+i             VAR WORD
+nPulses       VAR WORD
+
+'''''''''''''''
+'Program start'
+'''''''''''''''
+
+''''''
+'Init'
+''''''
+forwardMode   = 1
+onMineR 	    = 0 
+onMineL 	    = 0 
+avoidMode     = 0 
+irDetectLeft  = 0
+irDetectRight = 0    
+odd           = 0
+updateRandom  = 1
+
+result = 1000
+
+
+LOW LEDLeft
+LOW LEDRight
+dTimeL = 0
+dTimeR = 0
+
+'''''''''''''''
+'The main loop'
+'''''''''''''''
+' Alternate between turning and moving  forward a random length unit
+DO
+  IF updateRandom = 1 THEN 
+    RANDOM result
+    result = result / 4 ' MAGIC NUMBERS FTW
+    updateRandom = 0
+  ENDIF
+	
+
+  GOSUB Detect_Mines
+
+  IF onMineL = 1 OR onMineR = 1 THEN
+    GOSUB Turn_Random
+    avoidMode = 1
+  ENDIF
+
+  IF ONMineL = 0 AND ONMineR = 0 THEN
+  	avoidMode = 0
+  ENDIF
+
+  IF forwardMode = 1 THEN ' Move forward, avoid walls and look for mines
+    GOSUB Get_Ir_Distances
+    pulseLeft = (SetPoint - distanceRight) * Kpl + CenterPulse
+    pulseRight = (SetPoint - distanceLeft) * Kpr + CenterPulse
+    GOSUB Send_Pulse
+
+    'Exit move forward state
+    IF i = result THEN
+      forwardMode = 0
+      turnMode = 1
+      i = 0
+      updateRandom = 1
+    ENDIF
+  ELSEIF turnMode = 1 THEN ' Turn and look for mines
+    GOSUB Turn_Robot
+
+    'Exit turn state
+    IF i = result OR distanceLeft < 5 OR distanceRight < 5 THEN
+      forwardMode = 1
+      turnMode = 0
+      i = 0
+	 updateRandom = 1
+    ENDIF
+  ENDIF
+	
+  odd = ~odd 
+  i = i + 1
+LOOP
+
+Detect_Mines:
+  HIGH photoLeft
+  PAUSE 2
+  RCTIME photoLeft,1,timeLeft
+
+  HIGH photoRight
+  PAUSE 2
+  RCTIME photoRight,1,timeRight
+
+  dTimeL = timeLeft-lastTimeLeft
+  dTimeR = timeRight-lastTimeRight
+  negDeltaLeft = (dTimeL & %10000000)>>7
+  negDeltaRight = (dTimeR & %10000000)>>7
+
+  IF negDeltaLeft = 1 OR negDeltaRight = 1 THEN
+    ' Left sensor went off mine
+    IF (dTimeL <= 0-threshold) AND negDeltaLeft = 1 THEN
+      onMineL = 0
+      LOW LEDLeft
+    ENDIF
+    ' Right sensor went off mine
+    IF (dTimeR <= 0-threshold) AND negDeltaRight = 1 THEN
+      onMineR = 0
+      LOW LEDRight
+    ENDIF
+  ENDIF
+
+  'Mine found under both sensors
+  IF (dTimeL >= threshold) AND negDeltaLeft = 0 AND (dTimeR >= threshold) AND negDeltaRight = 0 THEN
+    onMineR = 1
+    onMineL = 1
+    HIGH LEDLeft
+    HIGH LEDRight
+  'Mine found under left sensor
+  ELSEIF (dTimeL >= threshold) AND negDeltaLeft = 0 THEN
+    onMineL = 1
+    HIGH LEDLeft
+  'Mine found under right sensor
+  ELSEIF (dTimeR >= threshold) AND negDeltaRight = 0 THEN
+    onMineR = 1
+    HIGH LEDRight
+  ENDIF
+
+  IF odd = 1 THEN
+    lastTimeLeft = timeLeft
+    lastTimeRight = timeRight
+    odd = 0
+  ELSE
+    odd = 1
+  ENDIF
+
+  RETURN
+
+Turn_Random:
+
+  IF avoidMode = 0 THEN
+    IF (result & 1) = 1  THEN
+      pulseLeft = 650
+      pulseRight = 650
+    ELSE
+      pulseLeft = 850
+      pulseRight = 850
+    ENDIF
+  ENDIF
+  GOSUB Send_Pulse
+  RETURN
+
+Get_Ir_Distances:
+  distanceLeft = 0
+  distanceRight = 0
+  FOR freqSelect = 0 TO 4
+      LOOKUP freqSelect,[41500,42250,42000,42250,42500], irFrequency
+
+      FREQOUT irLEDLeft,1,irFrequency
+      irDetectLeft = irLeft
+      distanceLeft = distanceLeft + irDetectLeft
+
+      FREQOUT irLEDRight,1,irFrequency
+      irDetectRight = irRight
+      distanceRight = distanceRight + irDetectRight
+  NEXT
+  RETURN
+
+Send_Pulse:
+  PULSOUT leftWheel,pulseLeft
+  PULSOUT rightWheel,pulseRight
+  RETURN
+
+Turn_Robot:
+  ' L = 850. R = 650 <-- rakt fram
+  IF (result & 1) = 1  THEN
+    pulseLeft = 850
+    pulseRight = 730
+  ELSE
+    pulseLeft = 770
+    pulseRight = 650
+  ENDIF
+
+  GOSUB Send_Pulse
+
+  RETURN
+
+Mine_Melody:
+
+  FOR freqSelect = 0 TO 9
+    LOOKUP freqSelect, [9000,8000,7000,6000,5000,4000,3000,2000,1000,1000], irFrequency
+    FREQOUT speaker, 50, irFrequency
+    PAUSE 5
+
+  NEXT
+  RETURN
+
+Check_Whiskers:
+  IF (whiskerLeft = 0) THEN
+     HIGH LEDLeft
+     DEBUG "LEFT"
+     GOSUB Mine_Melody
+  ELSE
+     LOW LEDLeft
+  ENDIF
+
+  IF (whiskerRight = 0) THEN
+     HIGH LEDRight
+     DEBUG "RIGHT"
+     GOSUB Mine_Melody
+  ELSE
+     LOW LEDRight
+  ENDIF
+  RETURN
