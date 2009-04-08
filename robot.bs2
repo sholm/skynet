@@ -73,9 +73,7 @@ irDetectLeft  = 0
 irDetectRight = 0    
 odd           = 0
 updateRandom  = 1
-
-result = 1000
-
+result = 0
 
 LOW LEDLeft
 LOW LEDRight
@@ -83,6 +81,16 @@ dTimeL = 0
 dTimeR = 0
 lastTimeLeft = 0
 lastTimeRight = 0
+i = 0
+
+HIGH photoLeft
+PAUSE 2
+RCTIME photoLeft,1,timeLeft
+lastTimeLeft = timeLeft
+HIGH photoRight
+PAUSE 2
+RCTIME photoRight,1,timeRight
+lastTimeRight = timeRight
 
 '''''''''''''''
 'The main loop'
@@ -90,9 +98,12 @@ lastTimeRight = 0
 ' Alternate between turning and moving  forward a random length unit
 DO
   IF updateRandom = 1 THEN 
+    result = result + timeLeft
     RANDOM result
-    result = result / 4 ' MAGIC NUMBERS FTW
+    'DEBUG DEC5 result
+    result = result / 6 ' MAGIC NUMBERS FTW
     updateRandom = 0
+    'DEBUG DEC5 result
   ENDIF	
 
   'Always detect mines
@@ -119,7 +130,7 @@ DO
     GOSUB Send_Pulse
 
     'Exit move forward state
-    IF i = result THEN
+    IF i > (result*3) THEN
       forwardMode = 0
       turnMode = 1
       i = 0
@@ -129,7 +140,7 @@ DO
     GOSUB Turn_Robot
 
     'Exit turn state
-    IF i = result OR irDetectLeft = 1 OR irdetectRight = 1 THEN
+    IF i > result OR irDetectLeft = 1 OR irdetectRight = 1 THEN
       forwardMode = 1
       turnMode = 0
       i = 0
@@ -241,11 +252,11 @@ Send_Pulse:
 Turn_Robot:
   ' L = 850. R = 650 <-- rakt fram
   IF (result & 1) = 1  THEN
-    pulseLeft = fBackwardL
+    pulseLeft = still
     pulseRight = fForwardR
   ELSE
     pulseLeft = fForwardL
-    pulseRight = fBackwardR
+    pulseRight = still
   ENDIF
 
   GOSUB Send_Pulse
