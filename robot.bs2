@@ -8,6 +8,12 @@ CenterPulse   CON 750
 threshold     CON 6
 stepInc       CON 10
 
+fBackwardL    CON 650
+fForwardR     CON 650
+fBackwardR    CON 850
+fForwardL     CON 850
+still	         CON 750
+
 photoLeft     PIN 15
 photoRight    PIN 14
 irLeft        PIN 11
@@ -76,7 +82,7 @@ LOW LEDRight
 dTimeL = 0
 dTimeR = 0
 lastTimeLeft = 0
-lastTimeRigth = 0
+lastTimeRight = 0
 
 '''''''''''''''
 'The main loop'
@@ -189,14 +195,13 @@ Detect_Mines:
   RETURN
 
 Turn_Random:
-
   IF avoidMode = 0 THEN
     IF (result & 1) = 1  THEN
-      pulseLeft = 650
-      pulseRight = 650
+      pulseLeft = fBackwardL
+      pulseRight = still
     ELSE
-      pulseLeft = 850
-      pulseRight = 850
+      pulseLeft = still
+      pulseRight = fBackwardR
     ENDIF
   ENDIF
   GOSUB Send_Pulse
@@ -236,11 +241,11 @@ Send_Pulse:
 Turn_Robot:
   ' L = 850. R = 650 <-- rakt fram
   IF (result & 1) = 1  THEN
-    pulseLeft = 850
-    pulseRight = 730
+    pulseLeft = fBackwardL
+    pulseRight = fForwardR
   ELSE
-    pulseLeft = 770
-    pulseRight = 650
+    pulseLeft = fForwardL
+    pulseRight = fBackwardR
   ENDIF
 
   GOSUB Send_Pulse
