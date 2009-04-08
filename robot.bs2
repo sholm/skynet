@@ -75,6 +75,8 @@ LOW LEDLeft
 LOW LEDRight
 dTimeL = 0
 dTimeR = 0
+lastTimeLeft = 0
+lastTimeRigth = 0
 
 '''''''''''''''
 'The main loop'
@@ -133,6 +135,9 @@ DO
   i = i + 1
 LOOP
 
+''
+'Functi
+'
 Detect_Mines:
   HIGH photoLeft
   PAUSE 2
@@ -179,9 +184,6 @@ Detect_Mines:
   IF odd = 1 THEN
     lastTimeLeft = timeLeft
     lastTimeRight = timeRight
-    odd = 0
-  ELSE
-    odd = 1
   ENDIF
 
   RETURN
