@@ -202,6 +202,18 @@ Detect_Mines:
   negDeltaLeft = (dTimeL & %10000000)>>7
   negDeltaRight = (dTimeR & %10000000)>>7
 
+
+  IF timeRight < mineColor THEN 
+    onMineR = 0 
+  ELSEIF timeRight > mineColor+10 THEN
+    onMineR = 1
+  ENDIF
+  IF timeLeft < mineColor THEN 
+    onMineL = 0 
+  ELSEIF timeLeft > mineColor+10 THEN 
+    onMineL = 1
+  ENDIF 
+
   IF negDeltaLeft = 1 OR negDeltaRight = 1 THEN
     ' Left sensor went off mine
     IF (dTimeL <= 255-threshold) AND negDeltaLeft = 1 THEN 
@@ -220,13 +232,6 @@ Detect_Mines:
   ELSEIF (dTimeR >= threshold) AND negDeltaRight = 0 THEN 
     onMineR = 1
   ENDIF
-
-  IF timeRight < mineColor THEN 
-    onMineR = 0 
-  ENDIF
-  IF timeLeft < mineColor THEN 
-    onMineL = 0 
-  ENDIF 
 
   IF odd = 1 THEN
     lastTimeLeft = timeLeft
@@ -296,9 +301,21 @@ Turn_Robot:
 Mine_Melody:
 
   FOR freqSelect = 0 TO 9
+    IF (freqSelect//2) = 0 THEN
+      LOW LED1
+      LOW LED2
+      LOW LED3
+      LOW LED4
+    ENDIF
     LOOKUP freqSelect, [9000,8000,7000,6000,5000,4000,3000,2000,1000,1000], irFrequency
     FREQOUT speaker, 50, irFrequency
     PAUSE 5
+    IF (freqSelect//2) = 0 THEN
+      HIGH LED1
+      HIGH LED2
+      HIGH LED3
+      HIGH LED4
+    ENDIF
   NEXT
   RETURN
 
