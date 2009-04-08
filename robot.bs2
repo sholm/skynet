@@ -8,6 +8,8 @@ CenterPulse   CON 750
 threshold     CON 7
 stepInc       CON 10
 
+mineColor     CON 50
+
 fBackwardL    CON 650
 fForwardR     CON 650
 fBackwardR    CON 850
@@ -27,8 +29,8 @@ LED3          PIN 4
 LED2          PIN 3
 LED1          PIN 2
 speaker       PIN 5
-whiskerLeft   PIN 2
-whiskerRight  PIN 3
+'whiskerLeft   PIN 2
+'whiskerRight  PIN 3
 irLEDLeft     PIN 1
 irLEDRight    PIN 0
 
@@ -87,17 +89,9 @@ lastTimeLeft = 0
 lastTimeRight = 0
 i = 0
 
-HIGH LED1
-PAUSE 40 
 LOW LED1
-HIGH LED2
-PAUSE 40
 LOW LED2
-HIGH LED3
-PAUSE 40
 LOW LED3
-HIGH LED4  
-PAUSE 40
 LOW LED4
 
 HIGH photoLeft
@@ -118,7 +112,7 @@ DO
     result = result + timeLeft
     RANDOM result
     'DEBUG DEC5 result
-    result = result / 6 ' MAGIC NUMBERS FTW
+    result = result / 6 + 10' MAGIC NUMBERS FTW
     updateRandom = 0
     'DEBUG DEC5 result
   ENDIF	
@@ -126,14 +120,32 @@ DO
   'Always detect mines
   GOSUB Detect_Mines
 
+  IF onMineL = 1 THEN 
+    HIGH LEDLeft 
+  ELSE
+    LOW LEDLeft 
+  ENDIF 
+  
+  IF onMineR = 1 THEN
+    HIGH LEDRight 
+  ELSE 
+    LOW LEDRight 
+  ENDIF
+
   IF onMineL = 1 OR onMineR = 1 THEN
+    IF avoidMode = 0 THEN
+      IF i > 20 THEN 
+        GOSUB Mine_Melody
+      ENDIF
+      i = 0
+    ENDIF
     GOSUB Turn_Random
     avoidMode = 1
     forwardMode = 0
     turnMode = 0
   ENDIF
 
-  IF avoidMode = 1 AND ONMineL = 0 AND ONMineR = 0 THEN
+  IF avoidMode = 1 AND onMineL = 0 AND onMineR = 0 THEN
   	avoidMode = 0
      forwardMode = 1
      turnMode = 0
@@ -183,6 +195,7 @@ Detect_Mines:
   RCTIME photoRight,1,timeRight
 
   'DEBUG "Left: ", DEC5 timeleft, ", Right: ", DEC5 timeRight, CR
+  'DEBUG "dTimeL: ", DEC5 dTimeL, ", dTimeR: ", DEC5 dTimeR,CR
 
   dTimeL = timeLeft-lastTimeLeft
   dTimeR = timeRight-lastTimeRight
@@ -192,38 +205,27 @@ Detect_Mines:
   IF negDeltaLeft = 1 OR negDeltaRight = 1 THEN
     ' Left sensor went off mine
     IF (dTimeL <= 255-threshold) AND negDeltaLeft = 1 THEN 
-      onMineL = 0
-      LOW LEDLeft
+      onMineL = 0 
     ENDIF
     ' Right sensor went off mine
-    IF (dTimeR <= 255-threshold) AND negDeltaRight = 1 THEN
-      onMineR = 0
-      LOW LEDRight
+    IF (dTimeR <= 255-threshold) AND negDeltaRight = 1 THEN 
+      onMineR = 0 
     ENDIF
   ENDIF
 
   'Mine found under both sensors
-  IF (dTimeL >= threshold) AND negDeltaLeft = 0 AND (dTimeR >= threshold) AND negDeltaRight = 0 THEN
-    onMineR = 1
+  IF (dTimeL >= threshold) AND negDeltaLeft = 0 THEN 
     onMineL = 1
-    HIGH LEDLeft
-    HIGH LEDRight
-  'Mine found under left sensor
-  ELSEIF (dTimeL >= threshold) AND negDeltaLeft = 0 THEN
-    onMineL = 1
-    HIGH LEDLeft
   'Mine found under right sensor
-  ELSEIF (dTimeR >= threshold) AND negDeltaRight = 0 THEN
+  ELSEIF (dTimeR >= threshold) AND negDeltaRight = 0 THEN 
     onMineR = 1
-    HIGH LEDRight
   ENDIF
 
-  IF timeRight < 60 THEN
-    onMineR = 0
+  IF timeRight < mineColor THEN 
+    onMineR = 0 
   ENDIF
-  
-  IF timeLeft < 60 THEN
-    onMineR = 0
+  IF timeLeft < mineColor THEN 
+    onMineL = 0 
   ENDIF 
 
   IF odd = 1 THEN
@@ -297,7 +299,6 @@ Mine_Melody:
     LOOKUP freqSelect, [9000,8000,7000,6000,5000,4000,3000,2000,1000,1000], irFrequency
     FREQOUT speaker, 50, irFrequency
     PAUSE 5
-
   NEXT
   RETURN
 
@@ -317,20 +318,20 @@ Funny_Lights:
   ENDIF
 RETURN
 
-Check_Whiskers:
-  IF (whiskerLeft = 0) THEN
-     HIGH LEDLeft
-     DEBUG "LEFT"
-     GOSUB Mine_Melody
-  ELSE
-     LOW LEDLeft
-  ENDIF
-
-  IF (whiskerRight = 0) THEN
-     HIGH LEDRight
-     DEBUG "RIGHT"
-     GOSUB Mine_Melody
-  ELSE
-     LOW LEDRight
-  ENDIF
-  RETURN
+'Check_Whiskers:
+'  IF (whiskerLeft = 0) THEN
+'     HIGH LEDLeft
+'     DEBUG "LEFT"
+'     GOSUB Mine_Melody
+'  ELSE
+'     LOW LEDLeft
+'  ENDIF
+'
+'  IF (whiskerRight = 0) THEN
+'     HIGH LEDRight
+'     DEBUG "RIGHT"
+'     GOSUB Mine_Melody
+'  ELSE
+'     LOW LEDRight
+'  ENDIF
+'  RETURN
