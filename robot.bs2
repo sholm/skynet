@@ -5,7 +5,7 @@ Kpl           CON -35
 Kpr           CON 35
 SetPoint      CON 1
 CenterPulse   CON 750
-threshold     CON 6
+threshold     CON 7
 stepInc       CON 10
 
 fBackwardL    CON 650
@@ -171,12 +171,12 @@ Detect_Mines:
 
   IF negDeltaLeft = 1 OR negDeltaRight = 1 THEN
     ' Left sensor went off mine
-    IF (dTimeL <= 0-threshold) AND negDeltaLeft = 1 THEN
+    IF (dTimeL <= 255-threshold) AND negDeltaLeft = 1 THEN 
       onMineL = 0
       LOW LEDLeft
     ENDIF
     ' Right sensor went off mine
-    IF (dTimeR <= 0-threshold) AND negDeltaRight = 1 THEN
+    IF (dTimeR <= 255-threshold) AND negDeltaRight = 1 THEN
       onMineR = 0
       LOW LEDRight
     ENDIF
