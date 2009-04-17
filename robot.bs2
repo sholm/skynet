@@ -18,12 +18,15 @@ still	         CON 750
 
 photoLeft     PIN 15
 photoRight    PIN 14
+photoCenter   PIN 7
+photoWRight   PIN 8 ' photo detector at right wheel
+photoWLeft    PIN 9 ' photo detector at left wheel
 irLeft        PIN 11
 irRight       PIN 10
 leftWheel     PIN 13
 rightWheel    PIN 12
-LEDLeft       PIN 9
-LEDRight      PIN 8
+'LEDLeft       PIN 9
+'LEDRight      PIN 8
 LED4          PIN 6
 LED3          PIN 4
 LED2          PIN 3
@@ -41,14 +44,18 @@ distanceRight VAR NIB
 pulseLeft     VAR WORD
 pulseRight    VAR WORD
 counter       VAR WORD
-timeLeft      VAR BYTE
-timeRight     VAR BYTE
+time          VAR BYTE
+'timeRight     VAR BYTE
+'timeCenter    VAR BYTE
 lastTimeLeft  VAR BYTE
 lastTimeRight VAR BYTE
-dTimeL        VAR BYTE
-dTimeR        VAR BYTE
-negDeltaRight VAR BIT
-negDeltaLeft  VAR BIT
+lastTimeCenter VAR BYTE
+dTime         VAR BYTE
+'dTimeR        VAR BYTE
+'dTimeC        VAR BYTE
+'negDeltaRight VAR BIT
+'negDeltaLeft  VAR BIT
+negDelta       VAR BIT
 
 irDetectLeft  VAR BIT 'state variable
 irDetectRight VAR BIT 'state variable
@@ -56,6 +63,7 @@ odd           VAR BIT 'state variabel
 forwardMode   VAR BIT 'state variable
 onMineL       VAR BIT 'state variable
 onMineR	    VAR BIT 'state variable
+onMineC       VAR BIT 'state variable
 avoidMode     VAR BIT 'state variable
 turnMode      VAR BIT 'state variable
 updateRandom  VAR BIT 'state variable
@@ -84,10 +92,10 @@ odd           = 0
 updateRandom  = 1
 result = 0
 
-LOW LEDLeft
-LOW LEDRight
-dTimeL = 0
-dTimeR = 0
+'LOW LEDLeft
+'LOW LEDRight
+dTime = 0
+'dTimeR = 0
 lastTimeLeft = 0
 lastTimeRight = 0
 i = 0
@@ -101,20 +109,23 @@ LOW LED4
 
 HIGH photoLeft
 PAUSE 2
-RCTIME photoLeft,1,timeLeft
-lastTimeLeft = timeLeft
+RCTIME photoLeft,1,time
+lastTimeLeft = time
 HIGH photoRight
 PAUSE 2
-RCTIME photoRight,1,timeRight
-lastTimeRight = timeRight
-
+RCTIME photoRight,1,time
+lastTimeRight = time
+HIGH photoCenter
+PAUSE 2
+RCTIME photoCenter,1,time
+lastTimeCenter = time
 '''''''''''''''
 'The main loop'
 '''''''''''''''
 ' Alternate between turning and moving  forward a random length unit
 DO
   IF updateRandom = 1 THEN 
-    result = result + timeLeft
+    result = result + time
     RANDOM result
     'DEBUG DEC5 result
     result = result / 6 + 10' MAGIC NUMBERS FTW
@@ -126,17 +137,17 @@ DO
   GOSUB Detect_Mines
   GOSUB Get_Ir_Distances
 
-  IF onMineL = 1 THEN 
-    HIGH LEDLeft 
-  ELSE
-    LOW LEDLeft 
-  ENDIF 
-  
-  IF onMineR = 1 THEN
-    HIGH LEDRight 
-  ELSE 
-    LOW LEDRight 
-  ENDIF
+'**   IF onMineL = 1 THEN 
+'**     HIGH LEDLeft 
+'**   ELSE
+'**     LOW LEDLeft 
+'**   ENDIF 
+'**   
+'**   IF onMineR = 1 THEN
+'**     HIGH LEDRight 
+'**   ELSE 
+'**     LOW LEDRight 
+'**   ENDIF
 
   IF onMineL = 1 OR onMineR = 1 OR avoidMode = 1 THEN
     IF avoidMode = 0 THEN
@@ -216,57 +227,72 @@ LOOP
 Detect_Mines:
   HIGH photoLeft
   PAUSE 2
-  RCTIME photoLeft,1,timeLeft
+  RCTIME photoLeft,1,time
+  dTime = time-lastTimeLeft
+  negDelta = (dTime & %10000000)>>7
+  IF time < mineColor THEN 
+    onMineL = 0 
+  ELSEIF time > mineColor+10 THEN 
+    onMineL = 1
+  ENDIF 
+  ' Left sensor went off mine
+  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+    onMineL = 0 
+  ENDIF
+  'Mine found under left sensor
+  IF (dTime >= threshold) AND negDelta = 0 THEN 
+    onMineL = 1
+  ENDIF
+  IF odd = 1 THEN
+    lastTimeLeft = time
+  ENDIF
+
 
   HIGH photoRight
   PAUSE 2
-  RCTIME photoRight,1,timeRight
-
-  'DEBUG "Left: ", DEC5 timeleft, ", Right: ", DEC5 timeRight, CR
-  'DEBUG "dTimeL: ", DEC5 dTimeL, ", dTimeR: ", DEC5 dTimeR,CR
-
-  dTimeL = timeLeft-lastTimeLeft
-  dTimeR = timeRight-lastTimeRight
-  negDeltaLeft = (dTimeL & %10000000)>>7
-  negDeltaRight = (dTimeR & %10000000)>>7
-
-
-  IF timeRight < mineColor THEN 
+  RCTIME photoRight,1,time
+  dTime = time-lastTimeRight
+  negDelta = (dTime & %10000000)>>7
+  IF time < mineColor THEN 
     onMineR = 0 
-  ELSEIF timeRight > mineColor+10 THEN
+  ELSEIF time > mineColor+10 THEN
     onMineR = 1
   ENDIF
-  IF timeLeft < mineColor THEN 
-    onMineL = 0 
-  ELSEIF timeLeft > mineColor+10 THEN 
-    onMineL = 1
-  ENDIF 
-
-  IF negDeltaLeft = 1 OR negDeltaRight = 1 THEN
-    ' Left sensor went off mine
-    IF (dTimeL <= 255-threshold) AND negDeltaLeft = 1 THEN 
-      onMineL = 0 
-    ENDIF
-    ' Right sensor went off mine
-    IF (dTimeR <= 255-threshold) AND negDeltaRight = 1 THEN 
-      onMineR = 0 
-    ENDIF
+  ' Right sensor went off mine
+  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+    onMineR = 0 
   ENDIF
-
-  'Mine found under both sensors
-  IF (dTimeL >= threshold) AND negDeltaLeft = 0 THEN 
-    onMineL = 1
   'Mine found under right sensor
-  ELSEIF (dTimeR >= threshold) AND negDeltaRight = 0 THEN 
+  IF (dTime >= threshold) AND negDelta = 0 THEN 
     onMineR = 1
   ENDIF
-
   IF odd = 1 THEN
-    lastTimeLeft = timeLeft
-    lastTimeRight = timeRight
+    lastTimeRight = time
   ENDIF
 
-  RETURN
+  HIGH photoCenter
+  PAUSE 2
+  RCTIME photoCenter,1,time
+  dTime = time-lastTimeCenter
+  negDelta = (dTime & %10000000)>>7
+  IF time < mineColor THEN 
+    onMineC = 0 
+  ELSEIF time > mineColor+10 THEN
+    onMineC = 1
+  ENDIF
+  ' Center sensor went off mine
+  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+    onMineC = 0 
+  ENDIF
+  'Mine found under center sensor
+  IF (dTime >= threshold) AND negDelta = 0 THEN 
+    onMineC = 1
+  ENDIF
+  IF odd = 1 THEN
+    lastTimeCenter = time
+  ENDIF
+
+RETURN
 
 Turn_Random:
   IF avoidMode = 0 THEN
@@ -279,7 +305,7 @@ Turn_Random:
     ENDIF
   ENDIF
   GOSUB Send_Pulse
-  RETURN
+RETURN
 
 Get_Ir_Distances:
   distanceLeft = 0
@@ -305,12 +331,12 @@ Get_Ir_Distances:
   ELSE 
      irDetectRight = 0
   ENDIF
-  RETURN
+RETURN
 
 Send_Pulse:
   PULSOUT leftWheel,pulseLeft
   PULSOUT rightWheel,pulseRight
-  RETURN
+RETURN
 
 Turn_Robot:
   ' L = 850. R = 650 <-- rakt fram
@@ -324,7 +350,7 @@ Turn_Robot:
 
   GOSUB Send_Pulse
 
-  RETURN
+RETURN
 
 Mine_Melody:
 
@@ -345,7 +371,7 @@ Mine_Melody:
       HIGH LED4
     ENDIF
   NEXT
-  RETURN
+RETURN
 
 Funny_Lights:
   IF i//4 = 0 THEN 
@@ -379,4 +405,4 @@ RETURN
 '  ELSE
 '     LOW LEDRight
 '  ENDIF
-'  RETURN
+'RETURN
