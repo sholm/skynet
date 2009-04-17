@@ -49,6 +49,8 @@ time          VAR BYTE
 'timeCenter    VAR BYTE
 lastTimeLeft  VAR BYTE
 lastTimeRight VAR BYTE
+lastTimeWLeft  VAR BYTE
+lastTimeWRight VAR BYTE
 lastTimeCenter VAR BYTE
 dTime         VAR BYTE
 'dTimeR        VAR BYTE
@@ -63,6 +65,8 @@ odd           VAR BIT 'state variabel
 forwardMode   VAR BIT 'state variable
 onMineL       VAR BIT 'state variable
 onMineR	    VAR BIT 'state variable
+onMineWL      VAR BIT 'state variable
+onMineWR	    VAR BIT 'state variable
 onMineC       VAR BIT 'state variable
 avoidMode     VAR BIT 'state variable
 turnMode      VAR BIT 'state variable
@@ -290,6 +294,50 @@ Detect_Mines:
   ENDIF
   IF odd = 1 THEN
     lastTimeCenter = time
+  ENDIF
+
+  HIGH photoWLeft
+  PAUSE 2
+  RCTIME photoWLeft,1,time
+  dTime = time-lastTimeWLeft
+  negDelta = (dTime & %10000000)>>7
+  IF time < mineColor THEN 
+    onMineWL = 0 
+  ELSEIF time > mineColor+10 THEN 
+    onMineWL = 1
+  ENDIF 
+  ' Left sensor went off mine
+  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+    onMineWL = 0 
+  ENDIF
+  'Mine found under left sensor
+  IF (dTime >= threshold) AND negDelta = 0 THEN 
+    onMineWL = 1
+  ENDIF
+  IF odd = 1 THEN
+    lastTimeWLeft = time
+  ENDIF
+
+  HIGH photoWRight
+  PAUSE 2
+  RCTIME photoWRight,1,time
+  dTime = time-lastTimeWRight
+  negDelta = (dTime & %10000000)>>7
+  IF time < mineColor THEN 
+    onMineWR = 0 
+  ELSEIF time > mineColor+10 THEN
+    onMineWR = 1
+  ENDIF
+  ' Right sensor went off mine
+  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+    onMineWR = 0 
+  ENDIF
+  'Mine found under right sensor
+  IF (dTime >= threshold) AND negDelta = 0 THEN 
+    onMineWR = 1
+  ENDIF
+  IF odd = 1 THEN
+    lastTimeWRight = time
   ENDIF
 
 RETURN
