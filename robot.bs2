@@ -64,7 +64,7 @@ updateRandom  VAR BIT 'state variable
 result        VAR BYTE
 i             VAR WORD
 j             VAR WORD
-k             VAR BIT
+cornerCheck   VAR BIT
 nPulses       VAR WORD
 
 '''''''''''''''
@@ -92,7 +92,7 @@ lastTimeLeft = 0
 lastTimeRight = 0
 i = 0
 j = 0
-k = 0
+cornerCheck = 0
 
 LOW LED1
 LOW LED2
@@ -164,17 +164,18 @@ DO
     IF irDetectRight = 1 THEN
       pulseRight = fForwardR
       pulseLeft = fBackwardL
-      IF k = 1 THEN
+      IF cornerCheck = 1 AND i < 5 THEN
         result = 40
         turnMode = 1
         forwardMode = 0
         i = 0
       ENDIF
-      k = 0
+      cornerCheck = 0
     ELSEIF irDetectLeft = 1 THEN
       pulseRight = fBackwardR
       pulseLeft = fForwardL
-      k = 1
+      cornerCheck = 1
+      i = 0
     ELSE
       pulseRight = fForwardR
       pulseLeft = fForwardL
