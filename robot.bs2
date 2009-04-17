@@ -70,6 +70,7 @@ onMineWR	    VAR BIT 'state variable
 onMineC       VAR BIT 'state variable
 avoidMode     VAR BIT 'state variable
 turnMode      VAR BIT 'state variable
+panicMode     VAR BIT 'state variable
 updateRandom  VAR BIT 'state variable
 
 
@@ -152,6 +153,27 @@ DO
 '**   ELSE 
 '**     LOW LEDRight 
 '**   ENDIF
+
+  IF onMineWL = 1 OR onMineWR = 1 OR panicMode = 1 THEN
+    IF panicMode = 0
+      panicMode = 1
+      forwardMode = 0
+      avoidMode = 0
+      turnMode = 0
+      onMineL = 0
+      onMineR = 0
+      result = onMineWL*2 + onMineWR
+      i = 0
+      GOSUB Turn_Random
+     
+    ELSE
+      IF i > 10 THEN
+        panicMode = 0
+        forwardMode = 1
+      ENDIF
+      GOSUB Turn_Random
+    ENDIF
+  ENDIF
 
   IF onMineL = 1 OR onMineR = 1 OR avoidMode = 1 THEN
     IF avoidMode = 0 THEN
