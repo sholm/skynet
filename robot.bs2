@@ -1,14 +1,14 @@
 ' {$STAMP BS2}
 ' {$PBASIC 2.5}
 
-Kpl           CON -35
-Kpr           CON 35
+'Kpl           CON -35
+'Kpr           CON 35
 SetPoint      CON 1
 CenterPulse   CON 750
-threshold     CON 7
+threshold     CON 11
 stepInc       CON 10
 
-mineColor     CON 50
+mineColor     CON 50 'Depending on mine type
 
 fBackwardL    CON 650
 fForwardR     CON 650
@@ -59,26 +59,31 @@ dTime         VAR BYTE
 'negDeltaLeft  VAR BIT
 negDelta       VAR BIT
 
-irDetectLeft  VAR BIT 'state variable
-irDetectRight VAR BIT 'state variable
-odd           VAR BIT 'state variabel
-forwardMode   VAR BIT 'state variable
-onMineL       VAR BIT 'state variable
-onMineR	    VAR BIT 'state variable
-onMineWL      VAR BIT 'state variable
-onMineWR	    VAR BIT 'state variable
-onMineC       VAR BIT 'state variable
-avoidMode     VAR BIT 'state variable
-turnMode      VAR BIT 'state variable
-panicMode     VAR BIT 'state variable
-updateRandom  VAR BIT 'state variable
-
+'===============
+'State variables 
+'===============
+irDetectLeft   VAR BIT 
+irDetectRight  VAR BIT 
+odd            VAR BIT 
+forwardMode    VAR BIT 
+onMineL        VAR BIT 
+onMineR	     VAR BIT 
+onMineWL       VAR BIT 
+onMineWR	     VAR BIT 
+onMineC        VAR BIT 
+avoidMode      VAR BIT 
+turnMode       VAR BIT 
+panicMode      VAR BIT 
+turnAroundMode VAR BIT
+updateRandom   VAR BIT 
+'====================
 
 result        VAR BYTE
 i             VAR WORD
 j             VAR WORD
 cornerCheck   VAR BIT
 nPulses       VAR WORD
+panicTurnDir  VAR BIT
 
 '''''''''''''''
 'Program start'
@@ -87,15 +92,23 @@ nPulses       VAR WORD
 ''''''
 'Init'
 ''''''
-forwardMode   = 1
-onMineR 	    = 0 
-onMineL 	    = 0 
-avoidMode     = 0 
-irDetectLeft  = 0
-irDetectRight = 0    
-odd           = 0
-updateRandom  = 1
-result = 0
+forwardMode    = 1
+turnAroundMode = 0
+avoidMode      = 0 
+turnMode       = 0 
+panicMode      = 0
+onMineR        = 0 
+onMineL        = 0
+onMineC        = 0
+onMineWL       = 0
+onMineWR       = 0 
+avoidMode      = 0 
+irDetectLeft   = 0
+irDetectRight  = 0    
+odd            = 0
+updateRandom   = 1
+result         = 0
+
 
 'LOW LEDLeft
 'LOW LEDRight
@@ -103,6 +116,9 @@ dTime = 0
 'dTimeR = 0
 lastTimeLeft = 0
 lastTimeRight = 0
+lastTimeCenter = 0
+lastTimeWLeft = 0
+lastTimeWRight = 0
 i = 0
 j = 0
 cornerCheck = 0
@@ -124,6 +140,14 @@ HIGH photoCenter
 PAUSE 2
 RCTIME photoCenter,1,time
 lastTimeCenter = time
+HIGH photoWLeft
+PAUSE 2
+RCTIME photoWLeft,1,time
+lastTimeWLeft = time
+HIGH photoWRight
+PAUSE 2
+RCTIME photoWRight,1,time
+lastTimeWRight = time
 '''''''''''''''
 'The main loop'
 '''''''''''''''
@@ -142,223 +166,166 @@ DO
   GOSUB Detect_Mines
   GOSUB Get_Ir_Distances
 
-'**   IF onMineL = 1 THEN 
-'**     HIGH LEDLeft 
-'**   ELSE
-'**     LOW LEDLeft 
-'**   ENDIF 
-'**   
-'**   IF onMineR = 1 THEN
-'**     HIGH LEDRight 
-'**   ELSE 
-'**     LOW LEDRight 
-'**   ENDIF
+  'GOSUB Mine_Indicator
 
   IF onMineWL = 1 OR onMineWR = 1 OR panicMode = 1 THEN
-    IF panicMode = 0
-      panicMode = 1
-      forwardMode = 0
+    'DEBUG "avoid = ", DEC1 avoidMode, " turn = ", DEC1 turnMode, " forward = ", DEC1 forwardMode, " panic = ", DEC1 panicMode, CR
+    'DEBUG "onMineL = ", DEC1 onMineL, " onMineR = ", DEC1 onMineR, " onMineC = ", DEC1 onMineC, " onMineWL = ", DEC1 onMineWL, " onMineWR = ", DEC1 onMineWR, CR
+    GOSUB Panic_Sub
+  ENDIF
+
+  IF panicMode = 0 THEN
+    IF onMineL = 1 OR onMineR = 1 OR avoidMode = 1 THEN
+      GOSUB Avoid_Sub
+    ELSEIF onMineC = 1 THEN
+      GOSUB Avoid_Sub
+    ENDIF
+  
+    IF avoidMode = 1 AND onMineL = 0 AND onMineR = 0 AND OnMineC = 0 AND irDetectLeft = 0 AND irDetectRight = 0 THEN
       avoidMode = 0
       turnMode = 0
-      onMineL = 0
-      onMineR = 0
-      result = onMineWL*2 + onMineWR
-      i = 0
-      GOSUB Turn_Random
-     
-    ELSE
-      IF i > 10 THEN
-        panicMode = 0
-        forwardMode = 1
-      ENDIF
-      GOSUB Turn_Random
-    ENDIF
-  ENDIF
-
-  IF onMineL = 1 OR onMineR = 1 OR avoidMode = 1 THEN
-    IF avoidMode = 0 THEN
-      IF j > 25 THEN 
-        GOSUB Mine_Melody
-      ENDIF
-      j = 0
-    ENDIF
-    GOSUB Turn_Random
-    avoidMode = 1
-    forwardMode = 0
-    turnMode = 0
-  ENDIF
-
-  IF avoidMode = 1 AND onMineL = 0 AND onMineR = 0 AND irDetectLeft = 0 AND irDetectRight = 0 THEN
-  	avoidMode = 0
-     forwardMode = 1
-     turnMode = 0
-     'Get safe
-  ENDIF
-
-  IF forwardMode = 1 THEN ' Move forward, avoid walls and look for mines
-    'pulseLeft = (SetPoint - distanceRight) * Kpl + CenterPulse
-    'pulseRight = (SetPoint - distanceLeft) * Kpr + CenterPulse
-    IF irDetectRight = 1 THEN
-      pulseRight = fForwardR
-      pulseLeft = fBackwardL
-      IF cornerCheck = 1 AND i < 5 THEN
-        result = 40
-        turnMode = 1
-        forwardMode = 0
-        i = 0
-      ENDIF
-      cornerCheck = 0
-    ELSEIF irDetectLeft = 1 THEN
-      pulseRight = fBackwardR
-      pulseLeft = fForwardL
-      cornerCheck = 1
-      i = 0
-    ELSE
-      pulseRight = fForwardR
-      pulseLeft = fForwardL
-    ENDIF
-    GOSUB Send_Pulse
-
-    'Exit move forward state
-    IF i > (result) THEN
-      forwardMode = 0
-      turnMode = 1
-      i = 0
-      updateRandom = 1
-    ENDIF
-  ELSEIF turnMode = 1 AND j > 40 THEN ' Turn and look for mines
-    GOSUB Turn_Robot
-
-    'Exit turn state
-    IF i > result OR irDetectLeft = 1 OR irDetectRight = 1 THEN
       forwardMode = 1
+    ENDIF 
+
+    IF forwardMode = 1 THEN ' Move forward, avoid walls and look for mines
+      GOSUB Forward_Sub
+    
+    ELSEIF turnMode = 1 AND j > 40 THEN ' Turn and look for mines
+      GOSUB Turn_Robot
+      'Exit turn state
+      IF i > result OR irDetectLeft = 1 OR irDetectRight = 1 THEN
+        forwardMode = 1
+        turnMode = 0
+        i = 0
+	   updateRandom = 1
+      ENDIF
+    
+    ELSEIF turnMode = 1 AND j <= 40 THEN
       turnMode = 0
-      i = 0
-	 updateRandom = 1
+      forwardMode = 1
     ENDIF
-  ELSEIF turnMode = 1 AND j <= 40 THEN
-    turnMode = 0
-    forwardMode = 1
+  
+    IF turnAroundMode = 1 THEN
+      GOSUB Turn_Robot_In_Place_Left
+      IF i > 20 THEN
+        forwardMode = 1
+        turnAroundMode = 0
+        i = 0
+	   updateRandom = 1
+      ENDIF
+    ENDIF
   ENDIF
-	
+
   odd = ~odd 
   i = i + 1
   j = j + 1
   GOSUB Funny_Lights
 LOOP
 
-''
-'Functi
-'
+'''''''''''
+'Functions'
+'''''''''''
 Detect_Mines:
-  HIGH photoLeft
-  PAUSE 2
-  RCTIME photoLeft,1,time
-  dTime = time-lastTimeLeft
-  negDelta = (dTime & %10000000)>>7
-  IF time < mineColor THEN 
-    onMineL = 0 
-  ELSEIF time > mineColor+10 THEN 
-    onMineL = 1
-  ENDIF 
-  ' Left sensor went off mine
-  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
-    onMineL = 0 
-  ENDIF
-  'Mine found under left sensor
-  IF (dTime >= threshold) AND negDelta = 0 THEN 
-    onMineL = 1
-  ENDIF
+
   IF odd = 1 THEN
+    HIGH photoLeft
+    PAUSE 2
+    RCTIME photoLeft,1,time
+    dTime = time-lastTimeLeft
+    negDelta = (dTime & %10000000)>>7
+    IF time < mineColor THEN 
+      onMineL = 0 
+    ELSEIF time > mineColor+10 THEN 
+      onMineL = 1
+    ENDIF 
+    'Left sensor went off mine
+    IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+      onMineL = 0 
+    ENDIF
+    'Mine found under left sensor
+    IF (dTime >= threshold) AND negDelta = 0 THEN 
+      onMineL = 1
+    ENDIF
     lastTimeLeft = time
-  ENDIF
 
-
-  HIGH photoRight
-  PAUSE 2
-  RCTIME photoRight,1,time
-  dTime = time-lastTimeRight
-  negDelta = (dTime & %10000000)>>7
-  IF time < mineColor THEN 
-    onMineR = 0 
-  ELSEIF time > mineColor+10 THEN
-    onMineR = 1
-  ENDIF
-  ' Right sensor went off mine
-  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
-    onMineR = 0 
-  ENDIF
-  'Mine found under right sensor
-  IF (dTime >= threshold) AND negDelta = 0 THEN 
-    onMineR = 1
-  ENDIF
-  IF odd = 1 THEN
+    HIGH photoRight
+    PAUSE 2
+    RCTIME photoRight,1,time
+    dTime = time-lastTimeRight
+    negDelta = (dTime & %10000000)>>7
+    IF time < mineColor THEN 
+      onMineR = 0 
+    ELSEIF time > mineColor+10 THEN
+      onMineR = 1
+    ENDIF
+    ' Right sensor went off mine
+    IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+      onMineR = 0 
+    ENDIF
+    'Mine found under right sensor
+    IF (dTime >= threshold) AND negDelta = 0 THEN 
+      onMineR = 1
+    ENDIF
     lastTimeRight = time
-  ENDIF
-
-  HIGH photoCenter
-  PAUSE 2
-  RCTIME photoCenter,1,time
-  dTime = time-lastTimeCenter
-  negDelta = (dTime & %10000000)>>7
-  IF time < mineColor THEN 
-    onMineC = 0 
-  ELSEIF time > mineColor+10 THEN
-    onMineC = 1
-  ENDIF
-  ' Center sensor went off mine
-  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
-    onMineC = 0 
-  ENDIF
-  'Mine found under center sensor
-  IF (dTime >= threshold) AND negDelta = 0 THEN 
-    onMineC = 1
-  ENDIF
-  IF odd = 1 THEN
+  ELSE
+    HIGH photoCenter
+    PAUSE 2
+    RCTIME photoCenter,1,time
+    dTime = time-lastTimeCenter
+    negDelta = (dTime & %10000000)>>7
+    IF time < mineColor THEN 
+      onMineC = 0 
+    ELSEIF time > mineColor+10 THEN
+      onMineC = 1
+    ENDIF
+    ' Center sensor went off mine
+    IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+      onMineC = 0 
+    ENDIF
+    ' Mine found under center sensor
+    IF (dTime >= threshold) AND negDelta = 0 THEN 
+      onMineC = 1
+    ENDIF
     lastTimeCenter = time
-  ENDIF
 
-  HIGH photoWLeft
-  PAUSE 2
-  RCTIME photoWLeft,1,time
-  dTime = time-lastTimeWLeft
-  negDelta = (dTime & %10000000)>>7
-  IF time < mineColor THEN 
-    onMineWL = 0 
-  ELSEIF time > mineColor+10 THEN 
-    onMineWL = 1
-  ENDIF 
-  ' Left sensor went off mine
-  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
-    onMineWL = 0 
-  ENDIF
-  'Mine found under left sensor
-  IF (dTime >= threshold) AND negDelta = 0 THEN 
-    onMineWL = 1
-  ENDIF
-  IF odd = 1 THEN
+    HIGH photoWLeft
+    PAUSE 2
+    RCTIME photoWLeft,1,time
+    dTime = time-lastTimeWLeft
+    negDelta = (dTime & %10000000)>>7
+    IF time < mineColor THEN 
+      onMineWL = 0 
+    ELSEIF time > mineColor+10 THEN 
+      onMineWL = 1
+    ENDIF 
+    ' Left sensor went off mine
+    IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+      onMineWL = 0 
+    ENDIF
+    'Mine found under left sensor
+    IF (dTime >= threshold) AND negDelta = 0 THEN 
+      onMineWL = 1
+    ENDIF
     lastTimeWLeft = time
-  ENDIF
 
-  HIGH photoWRight
-  PAUSE 2
-  RCTIME photoWRight,1,time
-  dTime = time-lastTimeWRight
-  negDelta = (dTime & %10000000)>>7
-  IF time < mineColor THEN 
-    onMineWR = 0 
-  ELSEIF time > mineColor+10 THEN
-    onMineWR = 1
-  ENDIF
-  ' Right sensor went off mine
-  IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
-    onMineWR = 0 
-  ENDIF
-  'Mine found under right sensor
-  IF (dTime >= threshold) AND negDelta = 0 THEN 
-    onMineWR = 1
-  ENDIF
-  IF odd = 1 THEN
+    HIGH photoWRight
+    PAUSE 2
+    RCTIME photoWRight,1,time
+    dTime = time-lastTimeWRight
+    negDelta = (dTime & %10000000)>>7
+    IF time < mineColor THEN 
+      onMineWR = 0 
+    ELSEIF time > mineColor+10 THEN
+      onMineWR = 1
+    ENDIF
+    ' Right sensor went off mine
+    IF (dTime <= 255-threshold) AND negDelta = 1 THEN 
+      onMineWR = 0 
+    ENDIF
+    'Mine found under right sensor
+    IF (dTime >= threshold) AND negDelta = 0 THEN 
+      onMineWR = 1
+    ENDIF
     lastTimeWRight = time
   ENDIF
 
@@ -374,6 +341,19 @@ Turn_Random:
       pulseRight = fBackwardR
     ENDIF
   ENDIF
+  GOSUB Send_Pulse
+RETURN
+
+Panic_Avoid:
+  
+  IF panicTurnDir = 0 THEN
+    pulseLeft = fBackwardL
+    pulseRight = still
+  ELSEIF panicTurnDir = 1 THEN
+    pulseLeft = still
+    pulseRight = fBackwardR
+  ENDIF
+  'DEBUG DEC1 panicTurnDir, " ",DEC3 i, CR
   GOSUB Send_Pulse
 RETURN
 
@@ -422,6 +402,12 @@ Turn_Robot:
 
 RETURN
 
+Turn_Robot_In_Place_Left:
+  pulseLeft = fBackwardL
+  pulseRight = fForwardR
+  GOSUB Send_Pulse
+RETURN
+
 Mine_Melody:
 
   FOR freqSelect = 0 TO 9
@@ -432,6 +418,28 @@ Mine_Melody:
       LOW LED4
     ENDIF
     LOOKUP freqSelect, [9000,8000,7000,6000,5000,4000,3000,2000,1000,1000], irFrequency
+    FREQOUT speaker, 50, irFrequency
+    PAUSE 5
+    IF (freqSelect//2) = 0 THEN
+      HIGH LED1
+      HIGH LED2
+      HIGH LED3
+      HIGH LED4
+    ENDIF
+  NEXT
+RETURN
+
+
+Panic_Melody:
+
+  FOR freqSelect = 0 TO 9
+    IF (freqSelect//2) = 0 THEN
+      LOW LED1
+      LOW LED2
+      LOW LED3
+      LOW LED4
+    ENDIF
+    LOOKUP freqSelect, [3000,3000,3000,3000,3000,3000,3000,3000,3000,3000], irFrequency
     FREQOUT speaker, 50, irFrequency
     PAUSE 5
     IF (freqSelect//2) = 0 THEN
@@ -458,6 +466,84 @@ Funny_Lights:
    LOW LED3
   ENDIF
 RETURN
+
+Panic_Sub:
+  IF panicMode = 0 THEN
+    panicMode = 1
+    forwardMode = 0
+    avoidMode = 0
+    turnMode = 0
+    i = 0
+    panicTurnDir = onMineWR
+    'GOSUB Panic_Melody     
+  ELSE
+    IF i > 20 THEN
+      panicMode = 0
+      forwardMode = 1
+    ENDIF
+  ENDIF
+  GOSUB Panic_Avoid
+RETURN
+
+Avoid_Sub:
+  IF avoidMode = 0 THEN
+    IF j > 25 THEN 
+      GOSUB Mine_Melody
+    ENDIF
+    j = 0
+  ENDIF
+  GOSUB Turn_Random
+  avoidMode = 1
+  forwardMode = 0
+  turnMode = 0
+RETURN
+
+Forward_Sub:
+  'pulseLeft = (SetPoint - distanceRight) * Kpl + CenterPulse
+  'pulseRight = (SetPoint - distanceLeft) * Kpr + CenterPulse
+  IF irDetectRight = 1 THEN
+    pulseRight = fForwardR
+    pulseLeft = fBackwardL
+    IF cornerCheck = 1 AND i < 5 THEN
+      turnAroundMode = 1
+      forwardMode = 0
+      i = 0
+	 RETURN
+    ENDIF
+    cornerCheck = 0
+  ELSEIF irDetectLeft = 1 THEN
+    pulseRight = fBackwardR
+    pulseLeft = fForwardL
+    cornerCheck = 1
+    i = 0
+  ELSE
+    pulseRight = fForwardR
+    pulseLeft = fForwardL
+  ENDIF
+  GOSUB Send_Pulse
+
+  'Exit move forward state
+  IF i > (result) THEN
+    forwardMode = 0
+    turnMode = 1
+    i = 0
+    updateRandom = 1
+  ENDIF
+RETURN
+
+'** Mine_Indicator:
+'**   IF onMineL = 1 THEN 
+'**     HIGH LEDLeft 
+'**   ELSE
+'**     LOW LEDLeft 
+'**   ENDIF 
+'**   
+'**   IF onMineR = 1 THEN
+'**     HIGH LEDRight 
+'**   ELSE 
+'**     LOW LEDRight 
+'**   ENDIF
+'** RETURN
 
 'Check_Whiskers:
 '  IF (whiskerLeft = 0) THEN
