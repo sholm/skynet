@@ -78,10 +78,15 @@ turnAroundMode VAR BIT
 updateRandom   VAR BIT 
 '====================
 
+
 result        VAR BYTE
 i             VAR WORD
 j             VAR WORD
+<<<<<<< HEAD:robot.bs2
 cornerCheck   VAR BIT
+=======
+k             VAR BIT
+>>>>>>> 5bc5cac6099d2c5ba1fa422d85c7d52900fb50ef:robot.bs2
 nPulses       VAR WORD
 panicTurnDir  VAR BIT
 
@@ -121,7 +126,11 @@ lastTimeWLeft = 0
 lastTimeWRight = 0
 i = 0
 j = 0
+<<<<<<< HEAD:robot.bs2
 cornerCheck = 0
+=======
+k = 0
+>>>>>>> 5bc5cac6099d2c5ba1fa422d85c7d52900fb50ef:robot.bs2
 
 LOW LED1
 LOW LED2
@@ -166,6 +175,7 @@ DO
   GOSUB Detect_Mines
   GOSUB Get_Ir_Distances
 
+<<<<<<< HEAD:robot.bs2
   'GOSUB Mine_Indicator
 
   IF onMineWL = 1 OR onMineWR = 1 OR panicMode = 1 THEN
@@ -184,6 +194,75 @@ DO
     IF avoidMode = 1 AND onMineL = 0 AND onMineR = 0 AND OnMineC = 0 AND irDetectLeft = 0 AND irDetectRight = 0 THEN
       avoidMode = 0
       turnMode = 0
+=======
+  IF onMineL = 1 THEN 
+    HIGH LEDLeft 
+  ELSE
+    LOW LEDLeft 
+  ENDIF 
+  
+  IF onMineR = 1 THEN
+    HIGH LEDRight 
+  ELSE 
+    LOW LEDRight 
+  ENDIF
+
+  IF onMineL = 1 OR onMineR = 1 OR avoidMode = 1 THEN
+    IF avoidMode = 0 THEN
+      IF j > 25 THEN 
+        GOSUB Mine_Melody
+      ENDIF
+      j = 0
+    ENDIF
+    GOSUB Turn_Random
+    avoidMode = 1
+    forwardMode = 0
+    turnMode = 0
+  ENDIF
+
+  IF avoidMode = 1 AND onMineL = 0 AND onMineR = 0 AND irDetectLeft = 0 AND irDetectRight = 0 THEN
+  	avoidMode = 0
+     forwardMode = 1
+     turnMode = 0
+     'Get safe
+  ENDIF
+
+  IF forwardMode = 1 THEN ' Move forward, avoid walls and look for mines
+    'pulseLeft = (SetPoint - distanceRight) * Kpl + CenterPulse
+    'pulseRight = (SetPoint - distanceLeft) * Kpr + CenterPulse
+    IF irDetectRight = 1 THEN
+      pulseRight = fForwardR
+      pulseLeft = fBackwardL
+      IF k = 1 THEN
+        result = 40
+        turnMode = 1
+        forwardMode = 0
+        i = 0
+      ENDIF
+      k = 0
+    ELSEIF irDetectLeft = 1 THEN
+      pulseRight = fBackwardR
+      pulseLeft = fForwardL
+      k = 1
+    ELSE
+      pulseRight = fForwardR
+      pulseLeft = fForwardL
+    ENDIF
+    GOSUB Send_Pulse
+
+    'Exit move forward state
+    IF i > (result) THEN
+      forwardMode = 0
+      turnMode = 1
+      i = 0
+      updateRandom = 1
+    ENDIF
+  ELSEIF turnMode = 1 AND j > 40 THEN ' Turn and look for mines
+    GOSUB Turn_Robot
+
+    'Exit turn state
+    IF i > result OR irDetectLeft = 1 OR irDetectRight = 1 THEN
+>>>>>>> 5bc5cac6099d2c5ba1fa422d85c7d52900fb50ef:robot.bs2
       forwardMode = 1
     ENDIF 
 
@@ -214,6 +293,9 @@ DO
 	   updateRandom = 1
       ENDIF
     ENDIF
+  ELSEIF turnMode = 1 AND j <= 40 THEN
+    turnMode = 0
+    forwardMode = 1
   ENDIF
 
   odd = ~odd 
